@@ -1229,4 +1229,5 @@ export const sponsorsList = [
   'Mooner',
   '已经成为美女',
   '果汁',
+  '熊孩子',
 ];
