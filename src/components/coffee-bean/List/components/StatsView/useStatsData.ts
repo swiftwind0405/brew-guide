@@ -356,13 +356,12 @@ export const useStatsData = (
 
     // ═══════════════════════════════════════════════════════════════════════
     // 总消耗计算策略：
-    // - 全部视图：基于 "总量 - 剩余量" 计算（不受笔记记录影响）
-    // - 历史视图：基于时间范围内的笔记累加（因为无历史剩余量数据）
+    // - 优先使用冲煮记录累计，保证全部/年/月/日视图口径一致
+    // - 仅在完全没有有效记录时，回退到 "总量 - 剩余量" 估算
     // ═══════════════════════════════════════════════════════════════════════
     let beanBasedConsumption = 0;
     let beanBasedCost = 0;
     let earliestBeanTime = Infinity;
-    let earliestNoteTime = Infinity;
     const beanBasedTypeConsumption: Record<BeanType, number> = {
       espresso: 0,
       filter: 0,
@@ -396,18 +395,6 @@ export const useStatsData = (
         // 找到最早的咖啡豆创建时间
         if (bean.timestamp && bean.timestamp < earliestBeanTime) {
           earliestBeanTime = bean.timestamp;
-        }
-      }
-
-      // 遍历所有笔记，找到最早的有效笔记时间（用于确定数据周期起始时间）
-      for (const note of notes) {
-        if (
-          note.timestamp &&
-          note.source !== 'capacity-adjustment' &&
-          note.source !== 'roasting' &&
-          note.timestamp < earliestNoteTime
-        ) {
-          earliestNoteTime = note.timestamp;
         }
       }
     }
@@ -466,11 +453,9 @@ export const useStatsData = (
 
         validNotesCount++;
 
-        // 历史视图：累加消耗和花费
-        if (selectedDate) {
-          noteBasedConsumption += amount;
-          noteBasedCost += cost;
-        }
+        // 记录口径：全部/历史视图都统一按有效冲煮记录累计
+        noteBasedConsumption += amount;
+        noteBasedCost += cost;
 
         // 按类型统计：用于库存预测的日均消耗计算（基于实际冲煮记录）
         const beanType = bean?.beanType;
@@ -554,12 +539,11 @@ export const useStatsData = (
     let actualDays = 1;
 
     if (selectedDate) {
-      // 历史视图：使用笔记统计
+      // 历史视图：始终使用笔记统计
       totalConsumption = noteBasedConsumption;
       totalCost = noteBasedCost;
       typeConsumption = noteBasedTypeConsumption;
 
-      // 计算日期范围（基于笔记时间）
       if (firstNoteTime !== Infinity) {
         const rangeEnd = endTime - 1; // endTime 是开区间
         effectiveDateRange = {
@@ -571,17 +555,25 @@ export const useStatsData = (
           effectiveDateRange.end
         );
       }
-    } else {
-      // 全部视图：总消耗用容量变化（准确），类型消耗用笔记（反映真实习惯）
-      totalConsumption = beanBasedConsumption;
-      totalCost = beanBasedCost;
+    } else if (validNotesCount > 0) {
+      // 全部视图：优先使用笔记累计，保证与月/日统计口径一致
+      totalConsumption = noteBasedConsumption;
+      totalCost = noteBasedCost;
       typeConsumption = noteBasedTypeConsumption;
 
-      // 计算日期范围（同时考虑咖啡豆创建时间和笔记时间，取较早的时间）
-      const earliestTime = Math.min(earliestBeanTime, earliestNoteTime);
-      if (earliestTime !== Infinity) {
-        effectiveDateRange = { start: earliestTime, end: now };
-        actualDays = calculateDaysBetween(earliestTime, now);
+      if (firstNoteTime !== Infinity) {
+        effectiveDateRange = { start: firstNoteTime, end: now };
+        actualDays = calculateDaysBetween(firstNoteTime, now);
+      }
+    } else {
+      // 备选：完全没有有效记录时，回退到库存差值估算
+      totalConsumption = beanBasedConsumption;
+      totalCost = beanBasedCost;
+      typeConsumption = beanBasedTypeConsumption;
+
+      if (earliestBeanTime !== Infinity) {
+        effectiveDateRange = { start: earliestBeanTime, end: now };
+        actualDays = calculateDaysBetween(earliestBeanTime, now);
       }
     }
 
@@ -629,7 +621,7 @@ export const useStatsData = (
       beansUsedCount: beansUsed.size,
       beansWithPrice,
       totalNotesCount: notes.length,
-      useBeanBasedStats: !selectedDate, // 标记是否使用基于容量的统计
+      useFallbackStats: !selectedDate && validNotesCount === 0, // 仅在无有效记录时回退到库存差值估算
     };
   }, [notes, roastedBeans, selectedDate, dateGroupingMode, isHistoricalView]);
 
@@ -696,7 +688,7 @@ export const useStatsData = (
       beansWithPrice: computedData.beansWithPrice,
       beansTotal: roastedBeans.length, // 使用熟豆的总数
       todayNotes: computedData.todayNotesCount,
-      useFallbackStats: computedData.useBeanBasedStats, // 全部视图使用容量变化统计
+      useFallbackStats: computedData.useFallbackStats,
     };
   }, [computedData, roastedBeans.length]);
 

@@ -157,7 +157,9 @@ const createExplanation = (
         value,
         formula: isHistoricalView
           ? '∑ 每条冲煮记录的咖啡用量'
-          : '∑ (购买容量 - 剩余量)',
+          : useFallbackStats
+            ? '∑ (购买容量 - 剩余量)'
+            : '∑ 全部冲煮记录的咖啡用量',
         dataSource: isHistoricalView
           ? [
               { label: '有效冲煮记录', value: `${validNotes} 条` },
@@ -171,7 +173,9 @@ const createExplanation = (
           ? validNotes < 5
             ? '记录较少，数据仅供参考'
             : undefined
-          : '基于咖啡豆容量变化计算，不受冲煮记录影响',
+          : useFallbackStats
+            ? '暂无有效冲煮记录，基于咖啡豆容量变化估算'
+            : '基于全部冲煮记录累计，和月/日统计口径一致',
       };
 
     case 'totalCost':
@@ -180,7 +184,9 @@ const createExplanation = (
         value,
         formula: isHistoricalView
           ? '∑ (用量 × 单价/容量)'
-          : '∑ (消耗量 × 单价/容量)',
+          : useFallbackStats
+            ? '∑ (消耗量 × 单价/容量)'
+            : '∑ 每条冲煮记录的 (用量 × 单价/容量)',
         dataSource: isHistoricalView
           ? [
               { label: '有效冲煮记录', value: `${validNotes} 条` },
@@ -201,7 +207,9 @@ const createExplanation = (
             ? `${beansTotal - beansWithPrice} 款咖啡豆缺少价格信息，未计入花费`
             : isHistoricalView
               ? undefined
-              : '基于咖啡豆容量变化计算',
+              : useFallbackStats
+                ? '暂无有效冲煮记录，基于咖啡豆容量变化估算'
+                : '基于全部冲煮记录累计，和月/日统计口径一致',
       };
 
     case 'dailyConsumption':
