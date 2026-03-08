@@ -7,6 +7,8 @@ import UpdateDrawer from '@/components/settings/UpdateDrawer';
 
 const UPDATE_CHECK_INTERVAL_MS = 5 * 60 * 1000;
 const RELOAD_FALLBACK_DELAY_MS = 1500;
+const UPDATE_RETRY_SESSION_KEY = 'pwa-update-retry-at';
+const UPDATE_RETRY_WINDOW_MS = 30 * 1000;
 
 export default function PWAUpdatePrompt() {
   const [showPrompt, setShowPrompt] = useState(false);
@@ -25,11 +27,52 @@ export default function PWAUpdatePrompt() {
 
     let disposed = false;
 
+    const readUpdateRetryTimestamp = () => {
+      const value = window.sessionStorage.getItem(UPDATE_RETRY_SESSION_KEY);
+      if (!value) return null;
+
+      const timestamp = Number(value);
+      return Number.isFinite(timestamp) ? timestamp : null;
+    };
+
+    const hasRecentUpdateRetry = () => {
+      const timestamp = readUpdateRetryTimestamp();
+      return timestamp !== null && Date.now() - timestamp < UPDATE_RETRY_WINDOW_MS;
+    };
+
+    const clearUpdateRetry = () => {
+      window.sessionStorage.removeItem(UPDATE_RETRY_SESSION_KEY);
+    };
+
+    const scheduleReloadFallback = () => {
+      if (reloadTimerRef.current !== null) {
+        window.clearTimeout(reloadTimerRef.current);
+      }
+
+      reloadTimerRef.current = window.setTimeout(() => {
+        window.location.reload();
+      }, RELOAD_FALLBACK_DELAY_MS);
+    };
+
+    const handleWaitingWorker = (registration: ServiceWorkerRegistration) => {
+      if (!registration.waiting || !navigator.serviceWorker.controller) return;
+
+      if (hasRecentUpdateRetry()) {
+        setIsUpdating(true);
+        setShowPrompt(false);
+        reloadTriggeredRef.current = true;
+        registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+        scheduleReloadFallback();
+        return;
+      }
+
+      setIsUpdating(false);
+      setShowPrompt(true);
+    };
+
     const bindRegistration = (registration: ServiceWorkerRegistration) => {
       if (registrationRef.current === registration) {
-        if (registration.waiting && navigator.serviceWorker.controller) {
-          setShowPrompt(true);
-        }
+        handleWaitingWorker(registration);
         return;
       }
 
@@ -42,8 +85,12 @@ export default function PWAUpdatePrompt() {
         if (!worker) return;
 
         const handleStateChange = () => {
-          if (worker.state === 'installed' && navigator.serviceWorker.controller) {
-            setShowPrompt(true);
+          if (
+            worker.state === 'installed' &&
+            registration.waiting &&
+            navigator.serviceWorker.controller
+          ) {
+            handleWaitingWorker(registration);
           }
         };
 
@@ -65,25 +112,36 @@ export default function PWAUpdatePrompt() {
         workerCleanups.forEach(cleanup => cleanup());
       };
 
-      if (registration.waiting && navigator.serviceWorker.controller) {
-        setShowPrompt(true);
+      handleWaitingWorker(registration);
+    };
+
+    const resolveRegistration = async () => {
+      if (registrationRef.current) {
+        return registrationRef.current;
       }
+
+      const scopedRegistration = await navigator.serviceWorker.getRegistration('/');
+      if (scopedRegistration) {
+        return scopedRegistration;
+      }
+
+      return navigator.serviceWorker.getRegistration();
     };
 
     const checkForUpdates = async () => {
       try {
-        const registration =
-          registrationRef.current ??
-          (await navigator.serviceWorker.getRegistration('/')) ??
-          (await navigator.serviceWorker.getRegistration());
+        const registration = await resolveRegistration();
 
         if (!registration) return;
 
         bindRegistration(registration);
         await registration.update();
 
-        if (registration.waiting && navigator.serviceWorker.controller) {
-          setShowPrompt(true);
+        if (!registration.waiting) {
+          clearUpdateRetry();
+          setIsUpdating(false);
+        } else {
+          handleWaitingWorker(registration);
         }
       } catch (error) {
         console.error('[PWA] update check failed:', error);
@@ -106,6 +164,9 @@ export default function PWAUpdatePrompt() {
     };
 
     const handleControllerChange = () => {
+      clearUpdateRetry();
+      setShowPrompt(false);
+      setIsUpdating(false);
       if (!reloadTriggeredRef.current) return;
       window.location.reload();
     };
@@ -158,6 +219,8 @@ export default function PWAUpdatePrompt() {
 
   const applyUpdate = () => {
     const registration = registrationRef.current;
+    window.sessionStorage.setItem(UPDATE_RETRY_SESSION_KEY, String(Date.now()));
+    setShowPrompt(false);
     setIsUpdating(true);
     reloadTriggeredRef.current = true;
 

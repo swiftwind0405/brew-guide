@@ -56,8 +56,9 @@ async function buildSW() {
         '*.txt',
       ],
 
-      // 跳过等待，新 SW 立即激活（用户下次访问即可获得新版本）
-      skipWaiting: true,
+      // 保持 waiting 状态，交由前端在用户确认后发送 SKIP_WAITING
+      // 否则会和更新抽屉的交互式升级流程冲突，Safari 独立 Web App 下尤其容易反复提示
+      skipWaiting: false,
 
       // 立即控制所有客户端
       clientsClaim: true,
