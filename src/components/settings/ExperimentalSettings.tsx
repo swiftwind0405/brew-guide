@@ -180,7 +180,21 @@ const ExperimentalSettings: React.FC<ExperimentalSettingsProps> = ({
         </SettingRow>
       </SettingSection>
 
-      <SettingSection footer="使用你配置的模型服务识别咖啡豆，并确保所选模型具备视觉理解能力，以获得稳定准确的识别结果。">
+      <SettingSection
+        footer={
+          <p className="text-xs text-neutral-500 dark:text-neutral-400">
+            使用你自己的模型API用于识别咖啡豆，以获得更准确的结果。
+            <a
+              className="ml-1 text-neutral-600 underline underline-offset-2 dark:text-neutral-300"
+              href="https://chu3.top/brewguide-help/custom-bean-recognition-api"
+              target="_blank"
+              rel="noreferrer"
+            >
+              查看教程
+            </a>
+          </p>
+        }
+      >
         <SettingRow label="自定义识别咖啡豆 API">
           <SettingToggle
             checked={settings.experimentalBeanRecognitionEnabled || false}
@@ -213,7 +227,7 @@ const ExperimentalSettings: React.FC<ExperimentalSettingsProps> = ({
                   onClick={() => setShowApiKey(v => !v)}
                   className="text-xs text-neutral-500 dark:text-neutral-400"
                 >
-                  {showApiKey ? '隐藏' : '查看'}
+                  {showApiKey ? '隐藏' : '显示'}
                 </button>
               </div>
               <input
