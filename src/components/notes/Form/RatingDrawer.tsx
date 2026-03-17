@@ -61,7 +61,7 @@ interface RatingDrawerProps {
   taste: Record<string, number>;
   onTasteChange: (taste: Record<string, number>) => void;
   displayDimensions: FlavorDimension[];
-  /** 是否开启半星精度 */
+  /** 风味评分是否开启半星精度 */
   halfStep?: boolean;
   /** 咖啡豆名称（用于显示"为 XXX 评分"） */
   beanName?: string;
@@ -166,7 +166,8 @@ const RatingDrawer: React.FC<RatingDrawerProps> = ({
     }));
   }, []);
 
-  const step = halfStep ? 0.5 : 1;
+  const overallStep = 0.5;
+  const tasteStep = halfStep ? 0.5 : 1;
 
   const overallSliderHandlers = useMemo(
     () => ({
@@ -183,7 +184,8 @@ const RatingDrawer: React.FC<RatingDrawerProps> = ({
           0,
           Math.min(1, (touch.clientX - rect.left) / rect.width)
         );
-        const newValue = Math.round((percentage * 5) / step) * step;
+        const newValue =
+          Math.round((percentage * 5) / overallStep) * overallStep;
         if (newValue !== currentSliderValue) {
           setTempRating(newValue);
           setCurrentSliderValue(newValue);
@@ -191,7 +193,7 @@ const RatingDrawer: React.FC<RatingDrawerProps> = ({
       },
       onTouchEnd: () => setCurrentSliderValue(null),
     }),
-    [currentSliderValue, step, tempRating]
+    [currentSliderValue, overallStep, tempRating]
   );
 
   const createSliderHandlers = useCallback(
@@ -209,7 +211,8 @@ const RatingDrawer: React.FC<RatingDrawerProps> = ({
           0,
           Math.min(1, (touch.clientX - rect.left) / rect.width)
         );
-        const newValue = Math.round((percentage * 5) / step) * step;
+        const newValue =
+          Math.round((percentage * 5) / tasteStep) * tasteStep;
         if (newValue !== currentSliderValue) {
           updateTasteRating(key, newValue);
           setCurrentSliderValue(newValue);
@@ -217,7 +220,7 @@ const RatingDrawer: React.FC<RatingDrawerProps> = ({
       },
       onTouchEnd: () => setCurrentSliderValue(null),
     }),
-    [currentSliderValue, step, updateTasteRating]
+    [currentSliderValue, tasteStep, updateTasteRating]
   );
 
   const handleConfirm = useCallback(() => {
@@ -255,7 +258,7 @@ const RatingDrawer: React.FC<RatingDrawerProps> = ({
                       总体评分
                     </div>
                     <div className="text-xs font-medium tracking-widest text-neutral-500 dark:text-neutral-400">
-                      [ {halfStep ? tempRating.toFixed(1) : tempRating} ]
+                      [ {tempRating.toFixed(1)} ]
                     </div>
                   </div>
                   <div className="relative py-3">
@@ -263,7 +266,7 @@ const RatingDrawer: React.FC<RatingDrawerProps> = ({
                       type="range"
                       min="0"
                       max="5"
-                      step={step}
+                      step={overallStep}
                       value={tempRating}
                       onChange={e => setTempRating(parseFloat(e.target.value))}
                       onTouchStart={overallSliderHandlers.onTouchStart}
@@ -276,29 +279,20 @@ const RatingDrawer: React.FC<RatingDrawerProps> = ({
               ) : (
                 <div className="flex justify-between" data-vaul-no-drag>
                   {[1, 2, 3, 4, 5].map(star => {
-                    const isHalf = halfStep && tempRating === star - 0.5;
+                    const isHalf = tempRating === star - 0.5;
                     const isFull = star <= tempRating;
                     return (
                       <motion.button
                         key={star}
                         whileTap={{ scale: 0.9 }}
                         onClick={() => {
-                          if (halfStep) {
-                            // 半星模式：1 → 0.5 → 0，其他：整星 → 半星 → 整星
-                            if (star === 1 && tempRating === 0.5) {
-                              setTempRating(0);
-                            } else if (tempRating === star) {
-                              setTempRating(star - 0.5);
-                            } else {
-                              setTempRating(star);
-                            }
+                          // 总体评分始终支持半星：1 → 0.5 → 0，其他：整星 → 半星 → 整星
+                          if (star === 1 && tempRating === 0.5) {
+                            setTempRating(0);
+                          } else if (tempRating === star) {
+                            setTempRating(star - 0.5);
                           } else {
-                            // 整星模式：再次点击1星时清零
-                            if (star === 1 && tempRating === 1) {
-                              setTempRating(0);
-                            } else {
-                              setTempRating(star);
-                            }
+                            setTempRating(star);
                           }
                         }}
                         className="cursor-pointer p-2"
@@ -352,7 +346,7 @@ const RatingDrawer: React.FC<RatingDrawerProps> = ({
                           type="range"
                           min="0"
                           max="5"
-                          step={step}
+                          step={tasteStep}
                           value={value}
                           onChange={e =>
                             updateTasteRating(
