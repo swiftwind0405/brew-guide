@@ -19,6 +19,8 @@ import {
   useScrollBorder,
 } from '@/lib/equipment/useScrollToSelected';
 import DesktopGlobalSearch from '@/components/layout/DesktopGlobalSearch';
+import { useCloudSyncConnection } from '@/lib/hooks/useCloudSync';
+import type { SyncDirection } from '@/lib/sync/types';
 
 import { Equal, ArrowLeft, ChevronsUpDown, Upload } from 'lucide-react';
 
@@ -108,7 +110,7 @@ const espressoUtils = {
 
 // 优化的 TabButton 组件 - 使用更简洁的条件渲染和样式计算
 interface TabButtonProps {
-  tab: string;
+  tab: React.ReactNode;
   isActive: boolean;
   isDisabled?: boolean;
   onClick?: () => void;
@@ -142,6 +144,21 @@ const TabButton: React.FC<TabButtonProps> = ({
     </div>
   );
 };
+
+interface SyncActionLabelProps {
+  label: string;
+  showSpinner?: boolean;
+}
+
+const SyncActionLabel: React.FC<SyncActionLabelProps> = ({
+  label,
+  showSpinner = false,
+}) => (
+  <span className="inline-flex items-center gap-2">
+    {showSpinner ? <AppleSpinner className="h-3 w-3" /> : null}
+    <span>{label}</span>
+  </span>
+);
 
 // 优化的EditableParameter组件 - 使用更简洁的逻辑和hooks
 interface EditableParameterProps {
@@ -317,6 +334,7 @@ interface NavigationBarProps {
   // 大屏幕宽度调整相关 props
   width?: number;
   isResizing?: boolean;
+  isDesktopLayout?: boolean;
 }
 
 // 意式咖啡相关工具函数 - 优化为更简洁的实现
@@ -414,6 +432,7 @@ const NavigationBar: React.FC<NavigationBarProps> = ({
   onPullToSync,
   width,
   isResizing,
+  isDesktopLayout = false,
 }) => {
   const { canGoBack } = useNavigation(
     activeBrewingStep,
@@ -427,8 +446,41 @@ const NavigationBar: React.FC<NavigationBarProps> = ({
   const syncProvider = useSyncStatusStore(state => state.provider);
   const isInitialSyncing = useSyncStatusStore(state => state.isInitialSyncing);
 
+  const {
+    provider: desktopSyncProvider,
+    isSyncing: isDesktopSyncing,
+    performSync: performDesktopSync,
+  } = useCloudSyncConnection(settings);
+  const [desktopSyncDirection, setDesktopSyncDirection] =
+    useState<SyncDirection | null>(null);
+
   // 判断是否正在同步
   const isSyncing = syncStatus === 'syncing' || isInitialSyncing;
+
+  const isDesktopBackLayout = Boolean(canGoBack() && onBackClick);
+  const showDesktopTopTabs = !isDesktopBackLayout;
+
+  const showDesktopSyncActions =
+    isDesktopLayout &&
+    !isDesktopBackLayout &&
+    (desktopSyncProvider === 's3' || desktopSyncProvider === 'webdav');
+
+  const handleDesktopSync = useCallback(
+    async (direction: SyncDirection) => {
+      if (!showDesktopSyncActions || isDesktopSyncing) return;
+      setDesktopSyncDirection(direction);
+      try {
+        await performDesktopSync(direction);
+      } finally {
+        setDesktopSyncDirection(null);
+      }
+    },
+    [performDesktopSync, isDesktopSyncing, showDesktopSyncActions]
+  );
+
+  const isDownloading =
+    isDesktopSyncing && desktopSyncDirection === 'download';
+  const isUploading = isDesktopSyncing && desktopSyncDirection === 'upload';
 
   const {
     visibleTabs = { brewing: true, coffeeBean: true, notes: true },
@@ -1053,8 +1105,6 @@ const NavigationBar: React.FC<NavigationBarProps> = ({
     activeMainTab === '冲煮' &&
     (!isTimerRunning || showComplete || activeBrewingStep === 'notes');
   const shouldShowParams = parameterInfo.method;
-  const isDesktopBackLayout = Boolean(canGoBack() && onBackClick);
-  const showDesktopTopTabs = !isDesktopBackLayout;
   const isNoCoffeeBeanMode =
     !hasCoffeeBeans || settings.showCoffeeBeanSelectionStep === false;
   const desktopContentTopSpacingClass =
@@ -1837,15 +1887,48 @@ const NavigationBar: React.FC<NavigationBarProps> = ({
         </AnimatePresence>
       )}
 
-      {/* 桌面端同步指示器 - 固定在导航栏底部 */}
-      {syncProvider === 'supabase' && isSyncing && (
-        <div className="mt-auto hidden px-6 pb-6 md:block">
-          <div className="flex items-center gap-2 text-xs text-neutral-400 dark:text-neutral-500">
-            <AppleSpinner className="h-3 w-3" />
-            <span>同步中</span>
+      {/* 桌面端底部操作区域 - 仅侧边导航布局 */}
+      {!isDesktopBackLayout &&
+        (showDesktopSyncActions ||
+          (syncProvider === 'supabase' && isSyncing)) && (
+          <div className="mt-auto hidden md:block">
+            <div className="h-px bg-neutral-200/60 dark:bg-neutral-800/60" />
+            <div className="flex flex-col space-y-4 px-6 pt-4 pb-6">
+              {showDesktopSyncActions ? (
+                <>
+                  <TabButton
+                    tab={
+                      <SyncActionLabel
+                        label={isUploading ? '上传中' : '上传'}
+                        showSpinner={isUploading}
+                      />
+                    }
+                    isActive={false}
+                    isDisabled={isDesktopSyncing}
+                    onClick={() => handleDesktopSync('upload')}
+                  />
+                  <TabButton
+                    tab={
+                      <SyncActionLabel
+                        label={isDownloading ? '下载中' : '下载'}
+                        showSpinner={isDownloading}
+                      />
+                    }
+                    isActive={false}
+                    isDisabled={isDesktopSyncing}
+                    onClick={() => handleDesktopSync('download')}
+                  />
+                </>
+              ) : (
+                <TabButton
+                  tab={<SyncActionLabel label="同步中" showSpinner />}
+                  isActive={false}
+                  isDisabled
+                />
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
     </motion.div>
   );
 };

@@ -198,19 +198,19 @@ export default function PWAInstallBanner() {
           {showDesktopDownloads && (
             <div className="flex items-center gap-1">
               <a
-                href="https://gitee.com/chu3/brew-guide/releases/download/v1.5.12/BrewGuide_1.5.12_windows_x64_setup.exe"
+                href="https://gitee.com/chu3/brew-guide/releases/download/v1.5.13/BrewGuide_1.5.13_windows_x64_setup.exe"
                 className="rounded-full bg-neutral-100 px-2 py-1 text-[11px] font-medium text-neutral-800 transition hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-100 dark:hover:bg-neutral-700"
               >
                 Windows
               </a>
               <a
-                href="https://gitee.com/chu3/brew-guide/releases/download/v1.5.12/BrewGuide_1.5.12_macos_arm64.dmg"
+                href="https://gitee.com/chu3/brew-guide/releases/download/v1.5.13/BrewGuide_1.5.13_macos_arm64.dmg"
                 className="rounded-full bg-neutral-100 px-2 py-1 text-[11px] font-medium text-neutral-800 transition hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-100 dark:hover:bg-neutral-700"
               >
                 macOS
               </a>
               <a
-                href="https://gitee.com/chu3/brew-guide/releases/download/v1.5.12/BrewGuide_1.5.12_linux_x64.AppImage"
+                href="https://gitee.com/chu3/brew-guide/releases/download/v1.5.13/BrewGuide_1.5.13_linux_x64.AppImage"
                 className="rounded-full bg-neutral-100 px-2 py-1 text-[11px] font-medium text-neutral-800 transition hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-100 dark:hover:bg-neutral-700"
               >
                 Linux

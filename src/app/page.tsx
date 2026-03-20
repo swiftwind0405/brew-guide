@@ -3313,6 +3313,7 @@ const PourOverRecipes = ({ initialHasBeans }: { initialHasBeans: boolean }) => {
           onPullToSync={handlePullToSync}
           width={isDesktopLayout ? navPanelWidth : undefined}
           isResizing={isNavResizing}
+          isDesktopLayout={isDesktopLayout}
           />
 
         {/* 导航栏拖动条 - 侧边导航布局（md 及以上）显示，放在 NavigationBar 和 main 之间避免被裁切 */}

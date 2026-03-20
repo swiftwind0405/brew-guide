@@ -1,5 +1,5 @@
 {
-  "version": "1.5.12",
+  "version": "1.5.13",
   "downloadUrl": "https://chu3.top/brewguide",
-  "releaseNotes": "笔记雷达图上线，评分与烘焙度逻辑优化，烘焙商体系完善及多项稳定性修复"
+  "releaseNotes": "笔记模块全面更新，聚焦内容本身，体验更轻量；修复了识图可用性。"
 }
