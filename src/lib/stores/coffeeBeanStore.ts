@@ -3,6 +3,11 @@ import { subscribeWithSelector } from 'zustand/middleware';
 import { CoffeeBean } from '@/types/app';
 import { db } from '@/lib/core/db';
 import { nanoid } from 'nanoid';
+import {
+  hasInvalidFlavorValue,
+  normalizeCoffeeBean,
+  normalizeCoffeeBeans,
+} from '@/lib/utils/coffeeBeanUtils';
 
 interface CoffeeBeanStore {
   beans: CoffeeBean[];
@@ -36,7 +41,18 @@ export const useCoffeeBeanStore = create<CoffeeBeanStore>()(
 
       set({ isLoading: true, error: null });
       try {
-        const beans = await db.coffeeBeans.toArray();
+        const rawBeans = await db.coffeeBeans.toArray();
+        const beans = normalizeCoffeeBeans(rawBeans, {
+          ensureFlavorArray: true,
+        });
+        const repairedBeans = rawBeans
+          .filter(bean => hasInvalidFlavorValue(bean.flavor))
+          .map(bean => normalizeCoffeeBean(bean, { ensureFlavorArray: true }));
+
+        if (repairedBeans.length > 0) {
+          await db.coffeeBeans.bulkPut(repairedBeans);
+        }
+
         set({ beans, isLoading: false, initialized: true });
       } catch (error) {
         console.error('[CoffeeBeanStore] loadBeans failed:', error);
@@ -45,11 +61,14 @@ export const useCoffeeBeanStore = create<CoffeeBeanStore>()(
     },
 
     addBean: async beanData => {
-      const newBean: CoffeeBean = {
-        ...beanData,
-        id: nanoid(),
-        timestamp: Date.now(),
-      } as CoffeeBean;
+      const newBean = normalizeCoffeeBean(
+        {
+          ...beanData,
+          id: nanoid(),
+          timestamp: Date.now(),
+        } as CoffeeBean,
+        { ensureFlavorArray: true }
+      );
 
       try {
         await db.coffeeBeans.put(newBean);
@@ -74,12 +93,15 @@ export const useCoffeeBeanStore = create<CoffeeBeanStore>()(
       const existingBean = beans.find(b => b.id === id);
       if (!existingBean) return null;
 
-      const updatedBean: CoffeeBean = {
-        ...existingBean,
-        ...updates,
-        id,
-        timestamp: Date.now(),
-      };
+      const updatedBean = normalizeCoffeeBean(
+        {
+          ...existingBean,
+          ...updates,
+          id,
+          timestamp: Date.now(),
+        },
+        { ensureFlavorArray: true }
+      ) as CoffeeBean;
 
       try {
         await db.coffeeBeans.put(updatedBean);
@@ -128,15 +150,21 @@ export const useCoffeeBeanStore = create<CoffeeBeanStore>()(
 
     upsertBean: async bean => {
       try {
-        await db.coffeeBeans.put(bean);
+        const normalizedBean = normalizeCoffeeBean(bean, {
+          ensureFlavorArray: true,
+        }) as CoffeeBean;
+
+        await db.coffeeBeans.put(normalizedBean);
         set(state => {
-          const exists = state.beans.some(b => b.id === bean.id);
+          const exists = state.beans.some(b => b.id === normalizedBean.id);
           if (exists) {
             return {
-              beans: state.beans.map(b => (b.id === bean.id ? bean : b)),
+              beans: state.beans.map(b =>
+                b.id === normalizedBean.id ? normalizedBean : b
+              ),
             };
           } else {
-            return { beans: [...state.beans, bean] };
+            return { beans: [...state.beans, normalizedBean] };
           }
         });
       } catch (error) {

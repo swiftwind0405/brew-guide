@@ -12,6 +12,7 @@ import {
   getRoasterConfigsSync,
   getSettingsStore,
 } from '@/lib/stores/settingsStore';
+import { normalizeCoffeeBeans } from '@/lib/utils/coffeeBeanUtils';
 
 // 检查是否在浏览器环境中
 const isBrowser = typeof window !== 'undefined';
@@ -302,7 +303,11 @@ export const DataManager = {
             break;
           case 'coffeeBeans':
             await db.coffeeBeans.clear();
-            await db.coffeeBeans.bulkPut(data as _CoffeeBean[]);
+            await db.coffeeBeans.bulkPut(
+              normalizeCoffeeBeans(data as _CoffeeBean[], {
+                ensureFlavorArray: true,
+              })
+            );
             break;
           case 'brewingNotes':
             await db.brewingNotes.clear();
@@ -318,6 +323,12 @@ export const DataManager = {
       for (const key of APP_DATA_KEYS) {
         if (importData.data[key] !== undefined) {
           let valueToSave = importData.data[key];
+
+          if (key === 'coffeeBeans' && Array.isArray(valueToSave)) {
+            valueToSave = normalizeCoffeeBeans(valueToSave as _CoffeeBean[], {
+              ensureFlavorArray: true,
+            });
+          }
 
           // 特殊处理 brewGuideSettings - 使用 settingsStore 导入
           if (key === 'brewGuideSettings' && typeof valueToSave === 'object') {

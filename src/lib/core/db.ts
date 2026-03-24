@@ -1,6 +1,7 @@
 import Dexie from 'dexie';
 import { BrewingNote, Method, CustomEquipment } from './config';
 import { CoffeeBean } from '@/types/app';
+import { normalizeCoffeeBeans } from '@/lib/utils/coffeeBeanUtils';
 
 /**
  * 研磨度历史记录
@@ -806,7 +807,12 @@ export const dbUtils = {
       const coffeeBeansJson = localStorage.getItem('coffeeBeans');
       if (coffeeBeansJson) {
         try {
-          const coffeeBeans: CoffeeBean[] = JSON.parse(coffeeBeansJson);
+          const coffeeBeans = normalizeCoffeeBeans(
+            JSON.parse(coffeeBeansJson) as CoffeeBean[],
+            {
+              ensureFlavorArray: true,
+            }
+          );
           if (coffeeBeans.length > 0) {
             await db.coffeeBeans.bulkPut(coffeeBeans);
             const migratedCount = await db.coffeeBeans.count();

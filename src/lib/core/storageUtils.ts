@@ -1,6 +1,8 @@
 import { db, dbUtils } from './db';
 import { Capacitor } from '@capacitor/core';
 import { Preferences } from '@capacitor/preferences';
+import type { CoffeeBean } from '@/types/app';
+import { normalizeCoffeeBeans } from '@/lib/utils/coffeeBeanUtils';
 
 /**
  * 存储分类常量，用于决定不同数据的存储方式
@@ -170,7 +172,12 @@ export const StorageUtils = {
             } else if (key === 'coffeeBeans') {
               try {
                 console.warn(`正在迁移 ${key} 数据...`);
-                const beans = JSON.parse(value);
+                const beans = normalizeCoffeeBeans(
+                  JSON.parse(value) as CoffeeBean[],
+                  {
+                    ensureFlavorArray: true,
+                  }
+                );
                 if (beans.length > 0) {
                   await db.coffeeBeans.bulkPut(beans);
                   // 验证迁移是否成功
@@ -344,7 +351,12 @@ export const StorageUtils = {
             } else if (key === 'coffeeBeans') {
               try {
                 console.warn(`正在迁移 ${key} 数据...`);
-                const beans = JSON.parse(value);
+                const beans = normalizeCoffeeBeans(
+                  JSON.parse(value) as CoffeeBean[],
+                  {
+                    ensureFlavorArray: true,
+                  }
+                );
                 if (beans.length > 0) {
                   await db.coffeeBeans.bulkPut(beans);
                   // 验证迁移是否成功
@@ -469,7 +481,9 @@ export const StorageUtils = {
         }
       } else if (key === 'coffeeBeans') {
         try {
-          const beans = JSON.parse(value);
+          const beans = normalizeCoffeeBeans(JSON.parse(value) as CoffeeBean[], {
+            ensureFlavorArray: true,
+          });
           // 🔥 使用事务确保咖啡豆数据的原子性操作
           await db.transaction('rw', db.coffeeBeans, async () => {
             const existingBeanIds = await db.coffeeBeans
@@ -564,7 +578,12 @@ export const StorageUtils = {
         }
       } else if (key === 'coffeeBeans') {
         try {
-          const beans = await db.coffeeBeans.toArray();
+          const beans = normalizeCoffeeBeans(
+            await db.coffeeBeans.toArray(),
+            {
+              ensureFlavorArray: true,
+            }
+          );
           return beans.length > 0 ? JSON.stringify(beans) : '[]';
         } catch (error) {
           console.error('从IndexedDB获取咖啡豆数据失败:', error);
