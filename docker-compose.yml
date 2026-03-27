@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  brew-guide:
+    image: ghcr.io/swiftwind0405/brew-guide:v1.6.0
+    container_name: brew-guide
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"      # Next.js 前端
+      - "${BACKEND_PORT:-3001}:3001"       # API 后端
+    environment:
+      # 后端配置
+      - NODE_ENV=production
+      - PORT=3001
+      - DATA_DIR=/data
+      
+      # 前端配置
+      - NEXT_PUBLIC_API_URL=http://localhost:3001
+      
+      # 安全/认证 (可选)
+      - API_KEY=${API_KEY:-}                # API 访问密钥 (留空表示不启用)
+      - CORS_ORIGINS=${CORS_ORIGINS:-*}     # 允许的跨域来源，逗号分隔或 * 表示全部
+      
+      # 日志级别
+      - LOG_LEVEL=${LOG_LEVEL:-info}        # debug, info, warn, error
+      
+      # 备份配置 (可选)
+      - BACKUP_ENABLED=${BACKUP_ENABLED:-false}
+      - BACKUP_CRON=${BACKUP_CRON:-0 2 * * *}  # 每天凌晨 2 点备份
+      - BACKUP_RETENTION_DAYS=${BACKUP_RETENTION_DAYS:-7}
+    volumes:
+      # SQLite 数据持久化
+      - ${DATA_PATH:-./data}:/data
+      
+      # 可选：备份目录
+      - ${BACKUP_PATH:-./backups}:/backups
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3001/api/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - brew-guide-network
+
+  # 可选：自动备份服务
+  backup:
+    image: offen/docker-volume-backup:latest
+    container_name: brew-guide-backup
+    restart: unless-stopped
+    environment:
+      - BACKUP_CRON_EXPRESSION=${BACKUP_CRON:-0 2 * * *}
+      - BACKUP_RETENTION_DAYS=${BACKUP_RETENTION_DAYS:-7}
+      - BACKUP_FILENAME=brew-guide-backup-%Y-%m-%dT%H-%M-%S.tar.gz
+      - BACKUP_ARCHIVE=/backups
+    volumes:
+      - ${DATA_PATH:-./data}:/backup/data:ro
+      - ${BACKUP_PATH:-./backups}:/backups
+    networks:
+      - brew-guide-network
+    profiles:
+      - backup
+
+networks:
+  brew-guide-network:
+    driver: bridge
