@@ -43,6 +43,14 @@ interface GrinderState {
   refreshGrinders: () => Promise<void>;
 }
 
+/**
+ * 同步磨豆机刻度到设置（辅助函数）
+ */
+export function syncGrinderScale(grindSize: string, grinderName?: string): void {
+  // 此函数用于向后兼容，实际同步逻辑由组件调用 updateGrinderScaleByName 处理
+  console.log('[syncGrinderScale]', grindSize, grinderName);
+}
+
 export function parseGrinderFromGrindSize(
   grindSize: string,
   grinderNames: string[]
