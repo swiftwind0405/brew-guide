@@ -7,7 +7,7 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import { BrewingNote } from '@/lib/core/config';
-import { db } from '@/lib/core/db';
+import { notesAPI } from '@/lib/api/client';
 import { nanoid } from 'nanoid';
 
 interface BrewingNoteStore {
@@ -45,9 +45,10 @@ export const useBrewingNoteStore = create<BrewingNoteStore>()(
       if (get().isLoading) return;
       set({ isLoading: true, error: null });
       try {
-        const notes = await db.brewingNotes.toArray();
+        const notes = await notesAPI.list();
         set({ notes, isLoading: false, initialized: true });
-      } catch {
+      } catch (e) {
+        console.error('[BrewingNoteStore] loadNotes failed:', e);
         set({ error: '加载笔记失败', isLoading: false, initialized: true });
       }
     },
@@ -60,20 +61,20 @@ export const useBrewingNoteStore = create<BrewingNoteStore>()(
         ...noteData,
         id: inputNote.id || nanoid(),
         timestamp,
-        updatedAt: inputNote.updatedAt || timestamp, // 创建时也设置 updatedAt，与 timestamp 相同
+        updatedAt: inputNote.updatedAt || timestamp,
       };
 
-      await db.brewingNotes.put(newNote);
-      set(state => ({ notes: [newNote, ...state.notes] }));
+      const created = await notesAPI.create(newNote);
+      set(state => ({ notes: [created, ...state.notes] }));
 
       if (typeof window !== 'undefined') {
         window.dispatchEvent(
           new CustomEvent('brewingNoteDataChanged', {
-            detail: { action: 'create', noteId: newNote.id, note: newNote },
+            detail: { action: 'create', noteId: created.id, note: created },
           })
         );
       }
-      return newNote;
+      return created;
     },
 
     updateNote: async (id, updates) => {
@@ -107,24 +108,24 @@ export const useBrewingNoteStore = create<BrewingNoteStore>()(
         delete (updatedNote as any).quickDecrementAmount;
       if (shouldRemoveChangeRecord) delete (updatedNote as any).changeRecord;
 
-      await db.brewingNotes.put(updatedNote);
+      const updated = await notesAPI.update(id, { ...updates, updatedAt: Date.now() });
       set(state => ({
-        notes: state.notes.map(n => (n.id === id ? updatedNote : n)),
+        notes: state.notes.map(n => (n.id === id ? updated : n)),
       }));
 
       if (typeof window !== 'undefined') {
         window.dispatchEvent(
           new CustomEvent('brewingNoteDataChanged', {
-            detail: { action: 'update', noteId: id, note: updatedNote },
+            detail: { action: 'update', noteId: id, note: updated },
           })
         );
       }
-      return updatedNote;
+      return updated;
     },
 
     deleteNote: async id => {
       try {
-        await db.brewingNotes.delete(id);
+        await notesAPI.delete(id);
         set(state => ({ notes: state.notes.filter(n => n.id !== id) }));
 
         if (typeof window !== 'undefined') {

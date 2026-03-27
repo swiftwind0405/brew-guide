@@ -29,11 +29,11 @@ const nextConfig = {
   // 启用 React Compiler
   reactCompiler: true,
   env: buildInfoEnv,
-  // 为 Capacitor 启用静态导出模式
-  output: 'export',
+  // 使用 standalone 模式，支持 SSR 和 API 路由
+  output: 'standalone',
   // 图像配置
   images: {
-    unoptimized: true, // 静态导出模式需要
+    unoptimized: false,
     remotePatterns: [
       {
         protocol: 'http',

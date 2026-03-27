@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import { CoffeeBean } from '@/types/app';
-import { db } from '@/lib/core/db';
+import { beansAPI } from '@/lib/api/client';
 import { nanoid } from 'nanoid';
 import {
   hasInvalidFlavorValue,
@@ -41,19 +41,8 @@ export const useCoffeeBeanStore = create<CoffeeBeanStore>()(
 
       set({ isLoading: true, error: null });
       try {
-        const rawBeans = await db.coffeeBeans.toArray();
-        const beans = normalizeCoffeeBeans(rawBeans, {
-          ensureFlavorArray: true,
-        });
-        const repairedBeans = rawBeans
-          .filter(bean => hasInvalidFlavorValue(bean.flavor))
-          .map(bean => normalizeCoffeeBean(bean, { ensureFlavorArray: true }));
-
-        if (repairedBeans.length > 0) {
-          await db.coffeeBeans.bulkPut(repairedBeans);
-        }
-
-        set({ beans, isLoading: false, initialized: true });
+        const beans = await beansAPI.list();
+        set({ beans: normalizeCoffeeBeans(beans, { ensureFlavorArray: true }), isLoading: false, initialized: true });
       } catch (error) {
         console.error('[CoffeeBeanStore] loadBeans failed:', error);
         set({ error: 'Failed to load', isLoading: false, initialized: true });
@@ -71,17 +60,18 @@ export const useCoffeeBeanStore = create<CoffeeBeanStore>()(
       );
 
       try {
-        await db.coffeeBeans.put(newBean);
-        set(state => ({ beans: [...state.beans, newBean] }));
+        const created = await beansAPI.create(newBean);
+        const normalized = normalizeCoffeeBean(created, { ensureFlavorArray: true });
+        set(state => ({ beans: [...state.beans, normalized] }));
 
         if (typeof window !== 'undefined') {
           window.dispatchEvent(
             new CustomEvent('coffeeBeanDataChanged', {
-              detail: { action: 'create', beanId: newBean.id, bean: newBean },
+              detail: { action: 'create', beanId: normalized.id, bean: normalized },
             })
           );
         }
-        return newBean;
+        return normalized;
       } catch (error) {
         console.error('[CoffeeBeanStore] addBean failed:', error);
         throw error;
@@ -104,19 +94,20 @@ export const useCoffeeBeanStore = create<CoffeeBeanStore>()(
       ) as CoffeeBean;
 
       try {
-        await db.coffeeBeans.put(updatedBean);
+        const updated = await beansAPI.update(id, updates);
+        const normalized = normalizeCoffeeBean(updated, { ensureFlavorArray: true });
         set(state => ({
-          beans: state.beans.map(b => (b.id === id ? updatedBean : b)),
+          beans: state.beans.map(b => (b.id === id ? normalized : b)),
         }));
 
         if (typeof window !== 'undefined') {
           window.dispatchEvent(
             new CustomEvent('coffeeBeanDataChanged', {
-              detail: { action: 'update', beanId: id, bean: updatedBean },
+              detail: { action: 'update', beanId: id, bean: normalized },
             })
           );
         }
-        return updatedBean;
+        return normalized;
       } catch (error) {
         console.error('[CoffeeBeanStore] updateBean failed:', error);
         throw error;
@@ -125,7 +116,7 @@ export const useCoffeeBeanStore = create<CoffeeBeanStore>()(
 
     deleteBean: async id => {
       try {
-        await db.coffeeBeans.delete(id);
+        await beansAPI.delete(id);
         set(state => ({
           beans: state.beans.filter(b => b.id !== id),
         }));
@@ -154,17 +145,21 @@ export const useCoffeeBeanStore = create<CoffeeBeanStore>()(
           ensureFlavorArray: true,
         }) as CoffeeBean;
 
-        await db.coffeeBeans.put(normalizedBean);
+        const exists = get().beans.some(b => b.id === normalizedBean.id);
+        const result = exists
+          ? await beansAPI.update(normalizedBean.id, normalizedBean)
+          : await beansAPI.create(normalizedBean);
+        const saved = normalizeCoffeeBean(result, { ensureFlavorArray: true });
+
         set(state => {
-          const exists = state.beans.some(b => b.id === normalizedBean.id);
           if (exists) {
             return {
               beans: state.beans.map(b =>
-                b.id === normalizedBean.id ? normalizedBean : b
+                b.id === saved.id ? saved : b
               ),
             };
           } else {
-            return { beans: [...state.beans, normalizedBean] };
+            return { beans: [...state.beans, saved] };
           }
         });
       } catch (error) {
@@ -174,7 +169,7 @@ export const useCoffeeBeanStore = create<CoffeeBeanStore>()(
 
     removeBean: async id => {
       try {
-        await db.coffeeBeans.delete(id);
+        await beansAPI.delete(id);
         set(state => ({ beans: state.beans.filter(b => b.id !== id) }));
       } catch (error) {
         console.error('[CoffeeBeanStore] removeBean failed:', error);
