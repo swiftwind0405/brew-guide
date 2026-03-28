@@ -85,6 +85,9 @@ export interface AppSettings {
   [key: string]: any;
 }
 
+// 为了兼容旧代码，导出 SettingsOptions 作为 AppSettings 的别名
+export type SettingsOptions = AppSettings;
+
 // ========== 模拟 Dexie 接口 ==========
 
 class TableWrapper<T> {

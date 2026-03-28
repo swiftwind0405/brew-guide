@@ -153,3 +153,6 @@ export const useGrinderStore = create<GrinderState>()(
     },
   }))
 );
+
+// 获取 store 实例的辅助函数
+export const getGrinderStore = () => useGrinderStore.getState();

@@ -288,7 +288,7 @@ const Settings: React.FC<SettingsProps> = ({
 
   // 计算是否有隐藏的方案和器具
   const hasHiddenMethods = React.useMemo(() => {
-    const hiddenMethods = settings.hiddenCommonMethods || {};
+    const hiddenMethods: Record<string, string[]> = settings.hiddenCommonMethods || {};
     return Object.values(hiddenMethods).some(methods => methods.length > 0);
   }, [settings.hiddenCommonMethods]);
 

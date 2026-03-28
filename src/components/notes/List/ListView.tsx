@@ -139,7 +139,7 @@ const NotesListView: React.FC<NotesListViewProps> = ({
   );
 
   const toggleShowQuickDecrementNotes = useCallback(() => {
-    setShowQuickDecrementNotes(prev => !prev);
+    setShowQuickDecrementNotes((prev: boolean) => !prev);
   }, []);
 
   const handleImageFlowNoteClick = useCallback(
