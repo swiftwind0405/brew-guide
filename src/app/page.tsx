@@ -1347,7 +1347,10 @@ const PourOverRecipes = ({ initialHasBeans }: { initialHasBeans: boolean }) => {
 
   // 处理子设置变更 - 使用 settingsStore
   const handleSubSettingChange = useCallback(
-    async (key: string, value: any) => {
+    async <K extends keyof SettingsOptions>(
+      key: K,
+      value: SettingsOptions[K]
+    ) => {
       try {
         await updateSettings({ [key]: value } as any);
       } catch (error) {

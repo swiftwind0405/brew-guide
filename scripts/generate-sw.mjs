@@ -10,6 +10,8 @@
  */
 
 import { generateSW } from 'workbox-build';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync } from 'fs';
+import { tmpdir } from 'os';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -17,18 +19,71 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const rootDir = join(__dirname, '..');
 
-async function buildSW() {
+function resolveBuildTarget() {
+  const standaloneDir = join(rootDir, '.next', 'standalone');
   const outDir = join(rootDir, 'out');
+
+  if (existsSync(standaloneDir)) {
+    return {
+      mode: 'standalone',
+      swDest: join(rootDir, 'public', 'sw.js'),
+    };
+  }
+
+  if (existsSync(outDir)) {
+    return {
+      mode: 'export',
+      swDest: join(outDir, 'sw.js'),
+      globDirectory: outDir,
+    };
+  }
+
+  throw new Error(
+    'No standalone or export build output found. Run `next build` before generating the service worker.'
+  );
+}
+
+function createStandaloneGlobDirectory() {
+  const tempRoot = mkdtempSync(join(tmpdir(), 'brew-guide-sw-'));
+  const stagingDir = join(tempRoot, 'root');
+  const publicDir = join(rootDir, 'public');
+  const nextStaticDir = join(rootDir, '.next', 'static');
+
+  if (existsSync(publicDir)) {
+    cpSync(publicDir, stagingDir, { recursive: true });
+  } else {
+    mkdirSync(stagingDir, { recursive: true });
+  }
+
+  if (existsSync(nextStaticDir)) {
+    const staticTargetDir = join(stagingDir, '_next', 'static');
+    mkdirSync(staticTargetDir, { recursive: true });
+    cpSync(nextStaticDir, staticTargetDir, { recursive: true });
+  }
+
+  return {
+    cleanupDir: tempRoot,
+    globDirectory: stagingDir,
+  };
+}
+
+async function buildSW() {
+  const target = resolveBuildTarget();
+  const standaloneAssets =
+    target.mode === 'standalone'
+      ? createStandaloneGlobDirectory()
+      : null;
+  const globDirectory = standaloneAssets?.globDirectory ?? target.globDirectory;
 
   console.log('📦 Generating Service Worker with Workbox...');
 
   try {
     const { count, size, warnings } = await generateSW({
       // 输出目录
-      swDest: join(outDir, 'sw.js'),
+      swDest: target.swDest,
 
       // 扫描的目录
-      globDirectory: outDir,
+      globDirectory,
 
       // 要预缓存的文件模式
       // 预缓存 = 构建时确定的静态资源，安装 SW 时立即下载并缓存
@@ -41,6 +96,7 @@ async function buildSW() {
         'sounds/*.mp3',
         // PWA 必需文件
         'manifest.json',
+        'version.json',
         // HTML 页面（静态导出的页面）
         '*.html',
       ],
@@ -268,6 +324,10 @@ async function buildSW() {
   } catch (error) {
     console.error('❌ Failed to generate Service Worker:', error);
     process.exit(1);
+  } finally {
+    if (standaloneAssets?.cleanupDir) {
+      rmSync(standaloneAssets.cleanupDir, { recursive: true, force: true });
+    }
   }
 }
 

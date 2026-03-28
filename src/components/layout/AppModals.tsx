@@ -61,7 +61,10 @@ export interface AppModalsProps {
   hasSubSettingsOpen: boolean;
   handleDataChange: () => Promise<void>;
   settings: SettingsOptions;
-  handleSubSettingChange: (key: string, value: unknown) => Promise<void>;
+  handleSubSettingChange: <K extends keyof SettingsOptions>(
+    key: K,
+    value: SettingsOptions[K]
+  ) => Promise<void>;
   handleSettingsChange: (newSettings: SettingsOptions) => Promise<void>;
   customEquipments: CustomEquipment[];
 

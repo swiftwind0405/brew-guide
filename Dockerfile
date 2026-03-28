@@ -3,8 +3,10 @@ FROM node:22-alpine AS frontend-build
 
 WORKDIR /app
 
+ARG PNPM_VERSION=10.30.2
+
 # Install pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
 
 # Copy and install frontend deps
 COPY package.json pnpm-lock.yaml .pnpmrc ./
@@ -30,8 +32,8 @@ COPY --from=frontend-build /app/public ./public
 
 # Install backend deps
 WORKDIR /app/server
-COPY server/package.json ./
-RUN npm install --production
+COPY server/package.json server/package-lock.json ./
+RUN npm ci --omit=dev
 
 # Copy backend code
 COPY server/index.js ./
