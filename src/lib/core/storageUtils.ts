@@ -445,25 +445,10 @@ export const StorageUtils = {
       if (key === 'brewingNotes') {
         try {
           const notes = JSON.parse(value);
-          // 🔥 关键修复：使用事务确保原子性，避免并发问题
-          await db.transaction('rw', db.brewingNotes, async () => {
-            // 先获取现有数据的所有ID
-            const existingNoteIds = await db.brewingNotes
-              .toCollection()
-              .primaryKeys();
-            const newNoteIds = new Set(notes.map((n: { id: string }) => n.id));
-
-            // 删除不在新数据中的旧记录
-            const idsToDelete = existingNoteIds.filter(
-              id => !newNoteIds.has(id as string)
-            );
-            if (idsToDelete.length > 0) {
-              await db.brewingNotes.bulkDelete(idsToDelete as string[]);
-            }
-
-            // 更新/插入新数据（bulkPut 会自动判断是更新还是插入）
-            await db.brewingNotes.bulkPut(notes);
-          });
+          // 更新/插入新数据（使用批量操作）
+          for (const note of notes) {
+            await db.brewingNotes.put(note);
+          }
 
           // 同步触发事件，确保数据一致性
           const storageEvent = new CustomEvent('storage:changed', {
@@ -484,22 +469,10 @@ export const StorageUtils = {
           const beans = normalizeCoffeeBeans(JSON.parse(value) as CoffeeBean[], {
             ensureFlavorArray: true,
           });
-          // 🔥 使用事务确保咖啡豆数据的原子性操作
-          await db.transaction('rw', db.coffeeBeans, async () => {
-            const existingBeanIds = await db.coffeeBeans
-              .toCollection()
-              .primaryKeys();
-            const newBeanIds = new Set(beans.map((b: { id: string }) => b.id));
-
-            const idsToDelete = existingBeanIds.filter(
-              id => !newBeanIds.has(id as string)
-            );
-            if (idsToDelete.length > 0) {
-              await db.coffeeBeans.bulkDelete(idsToDelete as string[]);
-            }
-
-            await db.coffeeBeans.bulkPut(beans);
-          });
+          // 批量更新咖啡豆数据
+          for (const bean of beans) {
+            await db.coffeeBeans.put(bean);
+          }
 
           // 同步触发事件，确保数据一致性
           const storageEvent = new CustomEvent('storage:changed', {

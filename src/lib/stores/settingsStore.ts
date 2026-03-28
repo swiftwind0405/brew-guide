@@ -462,7 +462,7 @@ export const useSettingsStore = create<SettingsStore>()(
     unhideEquipment: async equipmentId => {
       const currentSettings = get().settings;
       const hiddenEquipments = (currentSettings.hiddenEquipments || []).filter(
-        id => id !== equipmentId
+        (id: string) => id !== equipmentId
       );
       await get().updateSettings({ hiddenEquipments });
     },
@@ -487,7 +487,7 @@ export const useSettingsStore = create<SettingsStore>()(
         ...(currentSettings.hiddenCommonMethods || {}),
       };
       const equipmentHidden = (hiddenCommonMethods[equipmentId] || []).filter(
-        id => id !== methodId
+        (id: string) => id !== methodId
       );
 
       if (equipmentHidden.length > 0) {
@@ -568,7 +568,7 @@ export const useSettingsStore = create<SettingsStore>()(
       const settings = get().settings;
       const dimensions = (
         settings.flavorDimensions || DEFAULT_FLAVOR_DIMENSIONS
-      ).filter(d => d.id !== id);
+      ).filter((d: { id: string }) => d.id !== id);
 
       await get().updateSettings({ flavorDimensions: dimensions });
       dispatchFlavorDimensionsChanged(dimensions);
@@ -605,7 +605,7 @@ export const useSettingsStore = create<SettingsStore>()(
 
     getRoasterConfig: roasterName => {
       const configs = get().settings.roasterConfigs || [];
-      return configs.find(c => c.roasterName === roasterName);
+      return configs.find((c: { roasterName: string }) => c.roasterName === roasterName);
     },
 
     updateRoasterConfig: async (roasterName, updates) => {
@@ -635,7 +635,7 @@ export const useSettingsStore = create<SettingsStore>()(
     deleteRoasterConfig: async roasterName => {
       const settings = get().settings;
       const configs = (settings.roasterConfigs || []).filter(
-        c => c.roasterName !== roasterName
+        (c: { roasterName: string }) => c.roasterName !== roasterName
       );
       await get().updateSettings({ roasterConfigs: configs });
     },

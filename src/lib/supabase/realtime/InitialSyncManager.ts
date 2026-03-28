@@ -392,11 +392,9 @@ export class InitialSyncManager {
           ) => Promise<unknown>;
 
           // 批量写入以提高性能
-          await db.transaction('rw', dbTable, async () => {
-            for (const record of validRecords) {
-              await putRecord(record);
-            }
-          });
+          for (const record of validRecords) {
+            await putRecord(record);
+          }
         }
       }
 
@@ -405,7 +403,10 @@ export class InitialSyncManager {
         console.log(
           `[InitialSync] ${table} 删除 ${toDeleteLocal.length} 条本地记录`
         );
-        await dbTable.bulkDelete(toDeleteLocal);
+        // 逐个删除记录
+        for (const id of toDeleteLocal) {
+          await dbTable.delete(id);
+        }
       }
 
       return {

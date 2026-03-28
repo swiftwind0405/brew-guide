@@ -203,11 +203,10 @@ export const useCustomMethodStore = create<CustomMethodStore>()(
             );
           }
 
-          await db.transaction('rw', db.customMethods, async () => {
-            for (const { equipmentId, methods } of equipmentsToUpdate) {
-              await db.customMethods.put({ equipmentId, methods });
-            }
-          });
+          // 批量更新已迁移的数据
+          for (const { equipmentId, methods } of equipmentsToUpdate) {
+            await db.customMethods.put({ equipmentId, methods });
+          }
         }
 
         set({ methodsByEquipment, isLoading: false, initialized: true });

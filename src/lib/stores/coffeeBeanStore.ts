@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import { CoffeeBean } from '@/types/app';
 import { beansAPI } from '@/lib/api/client';
+import { db } from '@/lib/core/db';
 import { nanoid } from 'nanoid';
 import {
   hasInvalidFlavorValue,

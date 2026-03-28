@@ -8,6 +8,7 @@ import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import { BrewingNote } from '@/lib/core/config';
 import { notesAPI } from '@/lib/api/client';
+import { db } from '@/lib/core/db';
 import { nanoid } from 'nanoid';
 
 interface BrewingNoteStore {

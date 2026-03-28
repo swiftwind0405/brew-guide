@@ -59,7 +59,7 @@ export class OfflineQueueManager {
       const existing = await this.findExistingOperation(table, recordId);
       if (existing) {
         // 更新现有操作
-        await db.table('pendingOperations').update(existing.id, {
+        await db.pendingOperations.put({
           type,
           data,
           timestamp: Date.now(),
@@ -68,7 +68,7 @@ export class OfflineQueueManager {
         console.log(`[OfflineQueue] 更新队列操作: ${table}/${recordId}`);
       } else {
         // 添加新操作
-        await db.table('pendingOperations').add(operation);
+        await db.pendingOperations.put(operation);
         console.log(`[OfflineQueue] 添加到队列: ${table}/${recordId}`);
       }
     } catch (error) {
@@ -84,11 +84,12 @@ export class OfflineQueueManager {
     recordId: string
   ): Promise<PendingOperation | undefined> {
     try {
-      const operations = await db
-        .table('pendingOperations')
-        .where({ table, recordId })
-        .toArray();
-      return operations[0] as PendingOperation | undefined;
+      const operations = await db.pendingOperations.toArray();
+      const filtered = operations.filter(
+        (op: { table: string; recordId: string }) =>
+          op.table === table && op.recordId === recordId
+      );
+      return filtered[0] as PendingOperation | undefined;
     } catch {
       return undefined;
     }
@@ -99,10 +100,8 @@ export class OfflineQueueManager {
    */
   async getPendingOperations(): Promise<PendingOperation[]> {
     try {
-      return (await db
-        .table('pendingOperations')
-        .orderBy('timestamp')
-        .toArray()) as PendingOperation[];
+      const operations = (await db.pendingOperations.toArray()) as PendingOperation[];
+      return operations.sort((a, b) => a.timestamp - b.timestamp);
     } catch {
       return [];
     }
@@ -113,7 +112,8 @@ export class OfflineQueueManager {
    */
   async getPendingCount(): Promise<number> {
     try {
-      return await db.table('pendingOperations').count();
+      const operations = await db.pendingOperations.toArray();
+      return operations.length;
     } catch {
       return 0;
     }
@@ -124,7 +124,7 @@ export class OfflineQueueManager {
    */
   async dequeue(operationId: string): Promise<void> {
     try {
-      await db.table('pendingOperations').delete(operationId);
+      await db.pendingOperations.delete(operationId);
       console.log(`[OfflineQueue] 移除操作: ${operationId}`);
     } catch (error) {
       console.error('[OfflineQueue] 移除失败:', error);
@@ -136,9 +136,7 @@ export class OfflineQueueManager {
    */
   async markFailed(operationId: string): Promise<boolean> {
     try {
-      const operation = (await db
-        .table('pendingOperations')
-        .get(operationId)) as PendingOperation | undefined;
+      const operation = (await db.pendingOperations.get(operationId)) as PendingOperation | undefined;
 
       if (!operation) return false;
 
@@ -151,7 +149,8 @@ export class OfflineQueueManager {
         return false;
       }
 
-      await db.table('pendingOperations').update(operationId, {
+      await db.pendingOperations.put({
+        ...operation,
         retryCount: operation.retryCount + 1,
       });
       return true;
@@ -215,7 +214,10 @@ export class OfflineQueueManager {
    */
   async clear(): Promise<void> {
     try {
-      await db.table('pendingOperations').clear();
+      const operations = await db.pendingOperations.toArray();
+      for (const op of operations) {
+        await db.pendingOperations.delete(op.id);
+      }
       console.log('[OfflineQueue] 队列已清空');
     } catch (error) {
       console.error('[OfflineQueue] 清空队列失败:', error);

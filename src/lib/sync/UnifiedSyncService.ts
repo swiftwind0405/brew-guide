@@ -24,11 +24,11 @@ class UnifiedSyncService {
     const type = settings.activeSyncType;
     if (!type || type === 'none') return 'none';
 
-    const cfg = {
+    const cfg = ({
       supabase: settings.supabaseSync,
       s3: settings.s3Sync,
       webdav: settings.webdavSync,
-    }[type];
+    } as { [key: string]: { lastConnectionSuccess?: boolean } | undefined })[type];
     return cfg?.lastConnectionSuccess ? type : 'none';
   }
 
