@@ -22,8 +22,8 @@ FROM node:22-alpine AS production
 
 WORKDIR /app
 
-# Install build tools for better-sqlite3
-RUN apk add --no-cache python3 make g++ curl
+# Install build tools for better-sqlite3 and nginx
+RUN apk add --no-cache python3 make g++ curl nginx
 
 # Copy frontend standalone build
 COPY --from=frontend-build /app/.next/standalone ./
@@ -41,12 +41,20 @@ COPY server/index.js ./
 # Create data directory
 RUN mkdir -p /data
 
+# Copy Nginx config
+COPY nginx.conf /etc/nginx/http.d/default.conf
+
 # Environment
 ENV NODE_ENV=production
 ENV DATA_DIR=/data
-ENV NEXT_PUBLIC_API_URL=http://localhost:3001
+ENV NEXT_PUBLIC_API_URL=/api
 
-EXPOSE 3000 3001
+# Expose unified port
+EXPOSE 3000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD node -e "fetch('http://localhost:3000/api/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"
 
 # Start script
 WORKDIR /app
@@ -73,9 +81,17 @@ for i in $(seq 1 30); do
   sleep 1
 done
 
-# Start frontend
-echo "Starting frontend on port 3000..."
-exec node server.js
+# Start frontend on port 3002
+echo "Starting frontend on port 3002..."
+PORT=3002 node server.js &
+FRONTEND_PID=$!
+
+# Wait a moment for frontend
+sleep 2
+
+# Start nginx on port 3000 (unified entry)
+echo "Starting nginx on port 3000..."
+exec nginx -g 'daemon off;'
 EOF
 RUN chmod +x start.sh
 

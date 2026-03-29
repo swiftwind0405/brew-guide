@@ -6,26 +6,18 @@ services:
     container_name: brew-guide
     restart: unless-stopped
     ports:
-      # 前端暴露到主机的 7567 端口
-      # 反代配置: https://coffee.stanleywind.org:88 -> http://localhost:7567
+      # 统一端口暴露（3000 包含前端+后端API）
+      # Nginx 反代配置: https://coffee.stanleywind.org:88 -> http://localhost:7567
       - "7567:3000"
-      # 后端 API（可选，如果需要在容器外直接访问）
-      # 如果不需要外部直接访问 API，可以注释掉这一行
-      - "127.0.0.1:3001:3001"
     environment:
       # 后端配置
       - NODE_ENV=production
       - PORT=3001
       - DATA_DIR=/data
       
-      # 前端配置 - 容器内部 API 地址
-      # 由于前端在浏览器运行，这里应该填反代后的公网地址
-      # 用户访问的是 https://coffee.stanleywind.org:88
-      # 前端 JS 会调用 API，需要配置公网可访问的 API 地址
-      - NEXT_PUBLIC_API_URL=https://coffee.stanleywind.org:88/api
-      
-      # 或者如果 API 单独暴露，可以配置为：
-      # - NEXT_PUBLIC_API_URL=https://api.coffee.stanleywind.org:88
+      # 前端配置 - 使用相对路径（通过Nginx统一端口）
+      # 浏览器访问 /api 会自动由Nginx转发到后端
+      - NEXT_PUBLIC_API_URL=/api
       
       # CORS 配置 - 允许的来源
       - CORS_ORIGINS=https://coffee.stanleywind.org:88
