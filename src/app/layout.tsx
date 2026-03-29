@@ -171,7 +171,7 @@ export default function RootLayout({
       <head>
         {process.env.NODE_ENV === 'development' && (
           <Script
-            src="//unpkg.com/react-grab/dist/index.global.js"
+            src="https://unpkg.com/react-grab/dist/index.global.js"
             crossOrigin="anonymous"
             strategy="beforeInteractive"
           />
