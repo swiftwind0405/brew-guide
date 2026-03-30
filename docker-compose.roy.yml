@@ -1,0 +1,39 @@
+# Roy 部署用 - 无需本地构建，直接使用预构建镜像
+version: '3.8'
+
+services:
+  brew-guide:
+    # 使用 GitHub Packages 镜像（确保是 amd64 版本）
+    image: ghcr.io/swiftwind0405/brew-guide:v8.0.0
+    container_name: brew-guide
+    restart: unless-stopped
+    ports:
+      - "7567:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - DATA_DIR=/data
+      - NEXT_PUBLIC_API_URL=/api
+      - CORS_ORIGINS=https://coffee.stanleywind.org
+      - LOG_LEVEL=info
+    volumes:
+      - ./data:/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - brew-guide-network
+    # 内存限制
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+
+networks:
+  brew-guide-network:
+    driver: bridge
