@@ -3,8 +3,8 @@ version: '3.8'
 
 services:
   brew-guide:
-    # 使用 GitHub Packages 镜像（确保是 amd64 版本）
-    image: ghcr.io/swiftwind0405/brew-guide:v8.0.0
+    # 使用 GitHub Packages 镜像
+    image: ghcr.io/swiftwind0405/brew-guide:v8.0.1
     container_name: brew-guide
     restart: unless-stopped
     ports:
